@@ -1,42 +1,13 @@
 #!/usr/bin/env bash
-# Written by Stephan van der Putten s1528459
 
-# Update frameworks configs
-update_configs() {
-  cp configurations/hadoop/etc/hadoop/* $HADOOP_HOME/etc/hadoop/
-  cp configurations/spark/conf/* $SPARK_HOME/conf/ 
-  cp configurations/hibench/conf/* $HIBENCH_HOME/conf/ 
+#copied form stream-bench.sh
+#need to place this in bashrc
+SPARK_VERSION=${SPARK_VERSION:-"2.3.1"}
+SPARK_DIR="spark-$SPARK_VERSION-bin-hadoop2.7"
 
-  echo "Frameworks have their configs updated"
-} 
 
-# Check requirements SPARK_HOME and HADOOP_HOME and JAVA_HOME and HIBENCH_HOME
-check_requirements() {
-  if [ -z "$SPARK_HOME" ]; then
-    echo 'No SPARK_HOME set'
-    echo 'Set Spark env variable'
-  fi
 
-  if [ -z "$HADOOP_HOME" ]; then
-    echo 'No HADOOP_HOME set'
-    echo 'Set Hadoop env variable'
-  fi
 
-  if [ -z "$JAVA_HOME" ]; then
-    echo 'No JAVA_HOME set'
-    echo 'Set JAVA_HOME env variable'
-  fi
-
-  if [ -z "$HIBENCH_HOME" ]; then
-    echo 'No HIBENCH_HOME set'
-    echo 'Set HIBENCH_HOME env variable'
-  fi
-
-  if ! [[ -x "$(command -v mvn)" ]]; then
-    echo 'No Maven set'
-    echo 'Set Path to maven binary'
-  fi
-}
 
 #  Setups hadoop and spark and Hibench
 initial_setup() {
@@ -44,45 +15,27 @@ initial_setup() {
   install_dir=/var/scratch/$USER
 
   echo "Starting setup"
-  echo "Downloading Hadoop & Spark & HiBench & Maven "
-  wget -nc https://apache.mirrors.nublue.co.uk/hadoop/common/hadoop-2.10.1/hadoop-2.10.1.tar.gz
-  wget -nc https://mirror.novg.net/apache/spark/spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  wget -nc https://apache.mirror.wearetriple.com/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz 
-  git clone https://github.com/Intel-bigdata/HiBench.git $install_dir/hibench
+  echo "Will Call stream-bench SETUP "
 
-  # create lib where hadoop and spark and maven will be stored
-  mkdir -p $install_dir/hadoop $install_dir/spark $install_dir/maven 
+  git clone https://github.com/yahoo/streaming-benchmarks.git
 
-  echo "Extracting files to install directory"
-  # extract to correct folders
-  tar zxf hadoop-2.10.1.tar.gz -C $install_dir/hadoop --strip-components=1
-  tar zxf spark-2.4.7-bin-hadoop2.7.tgz -C $install_dir/spark --strip-components=1
-  tar zxf apache-maven-3.6.3-bin.tar.gz -C $install_dir/maven --strip-components=1
+  echo "have download yahoo streaming-benchmarks from github"
 
-  echo "Cleaning up"
-  # rm tgz
-  rm hadoop-2.10.1.tar.gz spark-2.4.7-bin-hadoop2.7.tgz apache-maven-3.6.3-bin.tar.gz
 
   ## Update environment variables
   ## assuming bashrc needs only these variables
-  cp configurations/bashrc ~/.bashrc
-  echo "export HADOOP_HOME=$install_dir/hadoop" >> ~/.bashrc
-  echo "export SPARK_HOME=$install_dir/spark" >> ~/.bashrc
-  # assuming the current java is java 8
-  echo "export JAVA_HOME=$(sed 's/\(\/\jre\/bin\/java\)//g' <<<  "$(ls -la $(ls -la $(which java) | awk '{ print $NF}') | awk '{ print $NF }')")" >> ~/.bashrc
-  echo "export HIBENCH_HOME=$install_dir/hibench" >> ~/.bashrc
-  echo "export PATH=\$PATH:$install_dir/maven/bin" >> ~/.bashrc
+  cp bashrc ~/.bashrc
   echo >> ~/.bashrc
   source ~/.bashrc
-  check_requirements
+  echo "have copied correct formated bashrc to ~/.bashrc"
+  
+  echo "will run setup from stream-bench"
+  bash ./streaming-bechmarks/stream-bench SETUP
 
-  # give the current configs in all frameworks
-  update_configs
+  #need to copy spark configs to spark 
+  cp spark/conf/* streaming-benchmark/$SPARK_DIR/conf/
+  echo "spark conf have been copied"
 
-  # link to install directory in scratch
-  ln -s $install_dir ~/scratch
-
-  source ~/.bashrc
   echo "Setup done"
 }
 
@@ -92,40 +45,11 @@ if [[ $1 == "--setup" ]]; then
   exit 0
 fi
 
-# Finds nodes on das5 and setups Hadoop
-initial_setup_hadoop() {
-  # declare reserved nodes
-  declare -a nodes=($(preserve -llist | grep $USER | awk '{for (i=9; i<NF; i++) printf $i " "; if (NF >= 9+$2) printf $NF;}'))
-
-  # setups driver node
-  ssh "${nodes[0]}" "mkdir -p /local/$USER/hadoop/"
-  driver=$(ssh ${nodes[0]} 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}')
-  sed -i "s/hdfs:\/\/.*:/hdfs:\/\/$driver:/g" $HADOOP_HOME/etc/hadoop/core-site.xml
-  sed -i "22s/<value>.*:/<value>$driver:/g" $HADOOP_HOME/etc/hadoop/yarn-site.xml
-  sed -i "26s/<value>.*</<value>$driver</g" $HADOOP_HOME/etc/hadoop/yarn-site.xml
-
-  # setup worker nodes
-  echo "" > $HADOOP_HOME/etc/hadoop/slaves
-  for node in "${nodes[@]:1}"; do
-    ssh "$node" 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}' >> $HADOOP_HOME/etc/hadoop/slaves
-    #    echo $node >>$HADOOP_HOME/etc/hadoop/slaves
-
-    # Clean up local and setups up local directory
-    ssh "$node" "rm -rf /local/$USER/hadoop/*"
-    ssh "$node" "mkdir -p /local/$USER/hadoop/data"
-  done
-
-  # Setup namenode
-  ssh "$driver" 'yes | $HADOOP_HOME/bin/hadoop namenode -format'
-
-  # Start daemons
-  ssh "$driver" '$HADOOP_HOME/sbin/start-dfs.sh'
-  ssh "$driver" '$HADOOP_HOME/sbin/start-yarn.sh'
-  
-}
-
 # Finds nodes on das5 and setups HiBench
 initial_setup_spark() {
+  truncate -s 0 $SPARK_HOME/conf/slaves
+  truncate -s 0 $SPARK_HOME/conf/spark-env.sh
+
   # declare reserved nodes
   declare -a nodes=($(preserve -llist | grep $USER | awk '{for (i=9; i<NF; i++) printf $i " "; if (NF >= 9+$2) printf $NF;}'))
 
@@ -133,18 +57,9 @@ initial_setup_spark() {
   echo "" > $SPARK_HOME/conf/spark-env.sh
   driver=$(ssh ${nodes[0]} 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}')
   echo "SPARK_MASTER_HOST=\"$driver\"" >>$SPARK_HOME/conf/spark-env.sh
-  # ssh ${nodes[0]} 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}' >> $SPARK_HOME/conf/slaves
-  echo "SPARK_MASTER_PORT=1336" >>$SPARK_HOME/conf/spark-env.sh
-  echo "SPARK_LOCAL_DIRS=/local/$USER/spark/" >>$SPARK_HOME/conf/spark-env.sh
-  echo "SPARK_MASTER_WEBUI_PORT=1335" >>$SPARK_HOME/conf/spark-env.sh
-  #echo "SPARK_WORKER_INSTANCES="$(expr ${#nodes[@]} - 1)"" >> $SPARK_HOME/conf/spark-env.sh
-  echo "SPARK_WORKER_MEMORY=15G" >>$SPARK_HOME/conf/spark-env.sh
 
-  # Necessary for working with yarn
-  echo "HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop" >>$SPARK_HOME/conf/spark-env.sh
-
-  ssh "$driver" "rm -rf /local/$USER/spark/*"
-  ssh "$driver" "mkdir -p /local/$USER/spark/"
+  #ssh "$driver" "rm -rf /local/$USER/spark/*"
+  #ssh "$driver" "mkdir -p /local/$USER/spark/"
 
   printf "\n"
   # setup worker nodes of spark
@@ -155,26 +70,11 @@ initial_setup_spark() {
 
     #highbang connection
     ssh "$node" 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}' >>$SPARK_HOME/conf/slaves
-    ssh "$node" "rm -rf /local/$USER/spark/*"
-    ssh "$node" "mkdir -p /local/$USER/spark/"
+    #ssh "$node" "rm -rf /local/$USER/spark/*"
+    #ssh "$node" "mkdir -p /local/$USER/spark/"
   done
-
-  # start the remote driver
-  ssh "$driver" '$SPARK_HOME/sbin/start-all.sh'
 }
 
-# Setup for HiBench
-initial_setup_hibench() {
-  # declare nodes
-  declare -a nodes=($(preserve -llist | grep $USER | awk '{for (i=9; i<NF; i++) printf $i " "; if (NF >= 9+$2) printf $NF;}'))
-
-  # declare hdfs address to hibench
-  sed -i "11s/hdfs:\/\/.*:/hdfs:\/\/$driver:/g" $HIBENCH_HOME/conf/hadoop.conf
-
-  # build hibench benchmarks, currently only ml and micro
-  #cd "$HIBENCH_HOME" && mvn -Phadoopbench -Psparkbench -Dmodules -Pmicro -Pml -Dspark=2.4 clean package
-
-}
 
 # Setups the amount of nodes and takes flag amount of minutes
 if [[ $1 == "--nodes" ]]; then
@@ -193,9 +93,7 @@ if [[ $1 == "--nodes" ]]; then
     echo "We have reserved node(s): ${nodes[@]}"
 
     # setup hadoop/spark/HiBench
-    initial_setup_hadoop
     initial_setup_spark
-    initial_setup_hibench
   fi
 
   printf "\n"
@@ -203,7 +101,7 @@ if [[ $1 == "--nodes" ]]; then
   printf "The driver is node: ${nodes[0]}"
   printf "\n"
 
-  echo "Cluster is setup for spark and hadoop!"
+  echo "Cluster is setup for spark"
 
   exit 0
 fi
@@ -369,10 +267,11 @@ fi
 if [[ $1 == "--help" || $1 == "-h" ]]; then
   echo "Usage: $0 [option]"
   echo "--nodes n t                 Start cluster followed by (n) number of nodes to setup in das5 and (t) time allocation."
-  echo "--setup                     Setup all initial software and packages."
+  echo "--setup                     Setup all initial software and packages. make sure stream-bench is correctly installed"
+  echo "--setup-spark               Setup all nodes sets master ip as node[0] and all other nodes are in slaves file"
   echo "--start-all                 Start cluster hadoop/spark default."
-  echo "--get-configs               Pulls configs from frameworks spark hadoop and HiBench"
-  echo "--update-configs            Sends configs from configuration to spark hadoop and HiBench"
+  #echo "--get-configs               Pulls configs from frameworks spark hadoop and HiBench"
+  #echo "--update-configs            Sends configs from configuration to spark hadoop and HiBench"
   echo "---check-requirements       Check if the necessary Environment Variables are set"
   echo "--stop-all                  Stop cluster."
   echo "--experiments-1 n           Runs the k-means experiments n times."
