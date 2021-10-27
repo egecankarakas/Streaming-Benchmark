@@ -45,6 +45,7 @@ initial_setup() {
   cp spark/conf/* streaming-benchmarks/$SPARK_DIR/conf/
   echo "spark conf have been copied"
 
+  cp stream-bench.sh streaming-benchmarks/stream-bench_.sh
   echo "Setup done"
 }
 
@@ -214,8 +215,6 @@ fi
 # Starts all and builds Hibench
 start_all() {
   initial_setup_spark
-  initial_setup_hadoop
-  initial_setup_hibench
 }
 
 # Start up SPARK and HADOOP daemons/processes with Hibench
@@ -232,9 +231,7 @@ stop_all() {
   declare -a nodes=($(preserve -llist | grep $USER | awk '{for (i=9; i<NF; i++) printf $i " "; if (NF >= 9+$2) printf $NF;}'))
 
   # send message to drivers to stop
-  ssh ${nodes[0]} '$HADOOP_HOME/sbin/stop-dfs.sh'
-  ssh ${nodes[0]} '$HADOOP_HOME/sbin/stop-yarn.sh'
-  ssh ${nodes[0]} '$SPARK_HOME/sbin/stop-all.sh'
+  ssh ${node[0]} 'streaming-benchmarks/$SPARK_DIR/sbin/stop-all.sh'
 
   # deallocates reservation
   scancel "$(preserve -llist | grep $USER | awk '{print $1}')"
@@ -251,9 +248,7 @@ fi
 # Get the configurations 
 get_configs() {
   # copy current settings to configurations
-  cp $HADOOP_HOME/etc/hadoop/* configurations/hadoop/etc/hadoop/
   cp $SPARK_HOME/conf/* configurations/spark/conf/
-  cp $HIBENCH_HOME/conf/* configurations/hibench/conf/
 
   echo "Configuration updated in /configurations"
 }
@@ -279,8 +274,6 @@ if [[ $1 == "--help" || $1 == "-h" || $1 == "" ]]; then
   echo "--setup                     Setup all initial software and packages. make sure stream-bench is correctly installed"
   echo "--setup-spark               Setup all nodes sets master ip as node[0] and all other nodes are in slaves file"
   echo "--start-all                 Start cluster hadoop/spark default."
-  #echo "--get-configs               Pulls configs from frameworks spark hadoop and HiBench"
-  #echo "--update-configs            Sends configs from configuration to spark hadoop and HiBench"
   echo "---check-requirements       Check if the necessary Environment Variables are set"
   echo "--stop-all                  Stop cluster."
   echo "--experiments-1 n           Runs the k-means experiments n times."
