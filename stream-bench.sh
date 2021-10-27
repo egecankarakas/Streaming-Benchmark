@@ -39,6 +39,11 @@ LOAD=${LOAD:-1000}
 CONF_FILE=./conf/localConf.yaml
 TEST_TIME=${TEST_TIME:-60}
 
+#should set my spark master to the master set by das5setup.sh file
+source $STARK_DIR/conf/spark-env.sh
+SPARK_MASTER=$SPARK_MASTER_HOST
+
+
 pid_match() {
    local VAL=`ps -aef | grep "$1" | grep -v grep | awk '{print $2}'`
    echo $VAL
@@ -218,8 +223,8 @@ run() {
     $FLINK_DIR/bin/stop-cluster.sh
   elif [ "START_SPARK" = "$OPERATION" ];
   then
-    start_if_needed org.apache.spark.deploy.master.Master SparkMaster 5 $SPARK_DIR/sbin/start-master.sh -h 10.149.0.54 -p 7077
-    start_if_needed org.apache.spark.deploy.worker.Worker SparkSlave 5 $SPARK_DIR/sbin/start-slave.sh spark://10.149.0.54:7077
+    start_if_needed org.apache.spark.deploy.master.Master SparkMaster 5 $SPARK_DIR/sbin/start-master.sh -h $SPARK_MASTER -p 7077
+    start_if_needed org.apache.spark.deploy.worker.Worker SparkSlave 5 $SPARK_DIR/sbin/start-slave.sh spark://$SPARK_MASTER:7077
   elif [ "STOP_SPARK" = "$OPERATION" ];
   then
     stop_if_needed org.apache.spark.deploy.master.Master SparkMaster

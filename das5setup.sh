@@ -7,10 +7,6 @@ SPARK_VERSION=${SPARK_VERSION:-"2.3.1"}
 SPARK_DIR="spark-$SPARK_VERSION-bin-hadoop2.7"
 
 
-
-
-
-
 #  Setups hadoop and spark and Hibench
 initial_setup() {
   # PATH to install directory 
@@ -50,7 +46,7 @@ initial_setup() {
   echo "spark conf have been copied"
 
   cp stream-bench.sh streaming-benchmarks/stream-bench_edited.sh
-  echo "Setup done"
+  echo "Setup done" 
 }
 
 # Downloads the dependencies used in the project and installs them
@@ -89,6 +85,15 @@ initial_setup_spark() {
   done
 }
 
+moves_files() {
+  echo "moving files"
+  cp stream-bench.sh streaming-benchmarks/stream-bench_edited.sh
+  echo "moves stream-bench_edited"
+  echo "need to move python files"
+  cp dataformat.py streaming-benchmarks/data/
+
+}
+
 
 # Setups the amount of nodes and takes flag amount of minutes
 if [[ $1 == "--nodes" ]]; then
@@ -120,93 +125,7 @@ if [[ $1 == "--nodes" ]]; then
   exit 0
 fi
 
-# Runs the experiments and $2 is the amount of times
-<<'COMMENTS'
-if [[ $1 == "--experiments-1" ]]; then
-  # declare nodes
-  declare -a nodes=($(preserve -llist | grep $USER | awk '{for (i=9; i<NF; i++) printf $i " "; if (NF >= 9+$2) printf $NF;}'))
-  driver=$(ssh ${nodes[0]} 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}')
 
-  # make sure the setting is large for the benchmark
-  sed -i "3s/small/large/g" $HIBENCH_HOME/conf/hibench.conf
-  sed -i "3s/tiny/large/g" $HIBENCH_HOME/conf/hibench.conf
-  sed -i "3s/micro/large/g" $HIBENCH_HOME/conf/hibench.conf
-  sed -i "3s/large/large/g" $HIBENCH_HOME/conf/hibench.conf
-  sed -i "3s/huge/large/g" $HIBENCH_HOME/conf/hibench.conf
-  sed -i "3s/gigantic/large/g" $HIBENCH_HOME/conf/hibench.conf
-  cd "$HIBENCH_HOME" && mvn -Phadoopbench -Psparkbench -Dmodules -Pml -Dspark=2.4 clean package
-  cd -
-
-  # setup configured dataset size from hibench.conf
-  ssh $driver "$HIBENCH_HOME/bin/workloads/ml/kmeans/prepare/prepare.sh" 
-
-  # clean report when starting tests
-  # cp configurations/hibench.report > $HIBENCH_HOME/report/hibench.report
-
-  start=1
-  for i in $(eval echo "{$start..$2}")
-  do
-    printf "\n"
-    echo "Running experiment: $i"
-
-    ssh "$driver" "$HIBENCH_HOME/bin/workloads/ml/kmeans/spark/run.sh"
-    ssh "$driver" "$HIBENCH_HOME/bin/workloads/ml/kmeans/hadoop/run.sh"
-    wait
-  done
-
-  # show results
-  echo "Results are shown for K-means:"
-  cat $HIBENCH_HOME/report/hibench.report
-  cp $HIBENCH_HOME/report/hibench.report experiments/
-  wait
-  exit 0
-fi
-
-# Runs the experiments and $2 is the amount of times
-if [[ $1 == "--experiments-2" ]]; then
-  # declare nodes
-  declare -a nodes=($(preserve -llist | grep $USER | awk '{for (i=9; i<NF; i++) printf $i " "; if (NF >= 9+$2) printf $NF;}'))
-  driver=$(ssh ${nodes[0]} 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}')
-
-  # build hibench benchmarks again using different setting
-  # small, large, huge
-  if [[ -n $3 ]]
-  then
-     sed -i "3s/tiny/$3/g" $HIBENCH_HOME/conf/hibench.conf # really small
-     sed -i "3s/small/$3/g" $HIBENCH_HOME/conf/hibench.conf
-     sed -i "3s/large/$3/g" $HIBENCH_HOME/conf/hibench.conf
-     sed -i "3s/huge/$3/g" $HIBENCH_HOME/conf/hibench.conf
-     sed -i "3s/gigantic/$3/g" $HIBENCH_HOME/conf/hibench.conf # takes for too long
-     sed -i "3s/bigdata/$3/g" $HIBENCH_HOME/conf/hibench.conf #takes far too long
-     cd "$HIBENCH_HOME" && mvn -Phadoopbench -Psparkbench -Dmodules -Pmicro -Dspark=2.4 clean package
-     cd -
-  fi
-
-  # setup configured dataset size from hibench.conf
-  ssh $driver "$HIBENCH_HOME/bin/workloads/micro/wordcount/prepare/prepare.sh" 
-
-  # clean report when starting tests
-  # cp configurations/hibench.report > $HIBENCH_HOME/report/hibench.report
-
-  start=1
-  for i in $(eval echo "{$start..$2}")
-  do
-    printf "\n"
-    echo "Running experiment: $i"
-
-    #ssh "$driver" "$HIBENCH_HOME/bin/workloads/micro/wordcount/hadoop/run.sh "
-    ssh "$driver" "$HIBENCH_HOME/bin/workloads/micro/wordcount/spark/run.sh"
-    wait
-  done
-
-  # show results
-  echo "Results for wordcount are shown:"
-  cat $HIBENCH_HOME/report/hibench.report
-  cp $HIBENCH_HOME/report/hibench.report experiments/
-  wait
-  exit 0
-fi
-COMMENTS
 
 # Checks the requirements of environments variable, not if they are correct necessarily
 if [[ $1 == "--check-requirements" ]]; then
@@ -273,16 +192,23 @@ if [[ $1 == "--update-configs" ]]; then
   exit 0
 fi
 
+if [[ $1 == "--movefiles"]]; then 
+  moves_files
+  wait
+  exit 0
+fi
+
 # Help option
 if [[ $1 == "--help" || $1 == "-h" || $1 == "" ]]; then
   echo "Usage: $0 [option]"
   echo "--nodes n t                 Start cluster followed by (n) number of nodes to setup in das5 and (t) time allocation."
   echo "--setup                     Setup all initial software and packages. make sure stream-bench is correctly installed"
+  echo "--movefiles                 Moves needed files to location"
   echo "--setup-spark               Setup all nodes sets master ip as node[0] and all other nodes are in slaves file"
-  echo "--start-all                 Start cluster hadoop/spark default."
-  echo "---check-requirements       Check if the necessary Environment Variables are set"
+  #echo "--start-all                 Start cluster hadoop/spark default."
+  #echo "---check-requirements       Check if the necessary Environment Variables are set"
   echo "--stop-all                  Stop cluster."
-  #echo "--experiments-1 n           Runs the k-means experiments n times."
+  echo "--experiments-1 n           Runs the k-means experiments n times."
   #echo "--experiments-2 n size      Runs the wordcount experiments n times. Size is optional, e.g. tiny, small, bigdata, large, huge, gigantic"
   exit 0
 fi
