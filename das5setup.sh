@@ -121,6 +121,7 @@ if [[ $1 == "--nodes" ]]; then
 fi
 
 # Runs the experiments and $2 is the amount of times
+<<'COMMENTS'
 if [[ $1 == "--experiments-1" ]]; then
   # declare nodes
   declare -a nodes=($(preserve -llist | grep $USER | awk '{for (i=9; i<NF; i++) printf $i " "; if (NF >= 9+$2) printf $NF;}'))
@@ -205,6 +206,7 @@ if [[ $1 == "--experiments-2" ]]; then
   wait
   exit 0
 fi
+COMMENTS
 
 # Checks the requirements of environments variable, not if they are correct necessarily
 if [[ $1 == "--check-requirements" ]]; then
