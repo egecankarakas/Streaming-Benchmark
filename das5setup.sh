@@ -276,8 +276,8 @@ if [[ $1 == "--help" || $1 == "-h" || $1 == "" ]]; then
   echo "--start-all                 Start cluster hadoop/spark default."
   echo "---check-requirements       Check if the necessary Environment Variables are set"
   echo "--stop-all                  Stop cluster."
-  echo "--experiments-1 n           Runs the k-means experiments n times."
-  echo "--experiments-2 n size      Runs the wordcount experiments n times. Size is optional, e.g. tiny, small, bigdata, large, huge, gigantic"
+  #echo "--experiments-1 n           Runs the k-means experiments n times."
+  #echo "--experiments-2 n size      Runs the wordcount experiments n times. Size is optional, e.g. tiny, small, bigdata, large, huge, gigantic"
   exit 0
 fi
 
