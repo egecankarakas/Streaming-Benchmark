@@ -28,12 +28,14 @@ initial_setup() {
   echo >> ~/.bashrc
   source ~/.bashrc
   echo "have copied correct formated bashrc to ~/.bashrc"
-  
-  echo "will run setup from stream-bench"
-  cd streaming-benchmarks
-  bash .stream-bench.sh SETUP
 
-  cd ..
+  cp spark-bench.sh stream-benchmark/stream-bench_.sh
+  
+  bash pwd
+
+  echo "will run setup from stream-bench"
+  bash ./stream-bechmark/stream-bench.sh SETUP
+
 
   #need to copy spark configs to spark 
   cp spark/conf/* streaming-benchmarks/$SPARK_DIR/conf/
