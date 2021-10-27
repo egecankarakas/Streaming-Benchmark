@@ -31,13 +31,13 @@ initial_setup() {
   source ~/.bashrc
   echo "have copied correct formated bashrc to ~/.bashrc"
 
-  cp stream-bench.sh streaming-benchmarks/stream-bench_.sh
+  #cp stream-bench.sh streaming-benchmarks/stream-bench_.sh
   
   pwd
   echo "will run setup from stream-bench"
   cd streaming-benchmarks
   pwd
-  bash ./stream-bench_.sh SETUP 
+  bash ./stream-bench.sh SETUP 
 
 
 
@@ -45,7 +45,7 @@ initial_setup() {
   cp spark/conf/* streaming-benchmarks/$SPARK_DIR/conf/
   echo "spark conf have been copied"
 
-  cp stream-bench.sh streaming-benchmarks/stream-bench_.sh
+  cp stream-bench.sh streaming-benchmarks/stream-bench_edited.sh
   echo "Setup done"
 }
 
