@@ -32,6 +32,9 @@ initial_setup() {
   echo "have copied correct formated bashrc to ~/.bashrc"
 
   #cp stream-bench.sh streaming-benchmarks/stream-bench_.sh
+
+  # need to copy of pom.xml file
+  cp pom.xml streaming-benchmarks/
   
   pwd
   echo "will run setup from stream-bench"
