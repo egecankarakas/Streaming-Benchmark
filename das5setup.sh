@@ -264,7 +264,7 @@ if [[ $1 == "--update-configs" ]]; then
 fi
 
 # Help option
-if [[ $1 == "--help" || $1 == "-h" ]]; then
+if [[ $1 == "--help" || $1 == "-h" || $1 == "" ]]; then
   echo "Usage: $0 [option]"
   echo "--nodes n t                 Start cluster followed by (n) number of nodes to setup in das5 and (t) time allocation."
   echo "--setup                     Setup all initial software and packages. make sure stream-bench is correctly installed"
