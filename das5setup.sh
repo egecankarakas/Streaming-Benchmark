@@ -2,8 +2,10 @@
 
 #copied form stream-bench.sh
 #need to place this in bashrc
+
 SPARK_VERSION=${SPARK_VERSION:-"2.3.1"}
 SPARK_DIR="spark-$SPARK_VERSION-bin-hadoop2.7"
+
 
 
 
@@ -54,29 +56,29 @@ fi
 
 # Finds nodes on das5 and setups HiBench
 initial_setup_spark() {
-  truncate -s 0 $SPARK_HOME/conf/slaves
-  truncate -s 0 $SPARK_HOME/conf/spark-env.sh
+  truncate -s 0 streaming-benchmarks/$SPARK_DIR/conf/slaves
+  truncate -s 0 streaming-benchmarks/$SPARK_DIR/conf/spark-env.sh
 
   # declare reserved nodes
   declare -a nodes=($(preserve -llist | grep $USER | awk '{for (i=9; i<NF; i++) printf $i " "; if (NF >= 9+$2) printf $NF;}'))
 
   # setup driver node of spark (running next to yarn) in standalone and configs of spark in standalone
-  echo "" > $SPARK_HOME/conf/spark-env.sh
+  echo "" > $SPARK_DIR/conf/spark-env.sh
   driver=$(ssh ${nodes[0]} 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}')
-  echo "SPARK_MASTER_HOST=\"$driver\"" >>$SPARK_HOME/conf/spark-env.sh
+  echo "SPARK_MASTER_HOST=\"$driver\"" >>streaming-benchmarks/$SPARK_DIR/conf/spark-env.sh
 
   #ssh "$driver" "rm -rf /local/$USER/spark/*"
   #ssh "$driver" "mkdir -p /local/$USER/spark/"
 
   printf "\n"
   # setup worker nodes of spark
-  echo >$SPARK_HOME/conf/slaves
+  echo >streaming-benchmarks/$SPARK_DIR/conf/slaves
   for node in "${nodes[@]:1}"; do
     # slower connection
     #$echo "$node" >> $SPARK_HOME/conf/slaves
 
     #highbang connection
-    ssh "$node" 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}' >>$SPARK_HOME/conf/slaves
+    ssh "$node" 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}' >>streaming-benchmarks/$SPARK_DIR/conf/slaves
     #ssh "$node" "rm -rf /local/$USER/spark/*"
     #ssh "$node" "mkdir -p /local/$USER/spark/"
   done
