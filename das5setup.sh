@@ -35,7 +35,8 @@ initial_setup() {
 
   # need to copy of pom.xml file
   cp pom.xml streaming-benchmarks/
-  
+  echo "copied pom.xml file"
+
   pwd
   echo "will run setup from stream-bench"
   cd streaming-benchmarks
