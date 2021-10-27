@@ -19,7 +19,7 @@ initial_setup() {
 
   echo "have download yahoo streaming-benchmarks from github"
 
-
+  wait
   ## Update environment variables
   ## assuming bashrc needs only these variables
   cp bashrc ~/.bashrc
@@ -91,6 +91,7 @@ moves_files() {
   echo "moves stream-bench_edited"
   echo "need to move python files"
   cp dataformat.py streaming-benchmarks/data/
+  echo "moved dataformats"
 
 }
 
@@ -124,6 +125,15 @@ if [[ $1 == "--nodes" ]]; then
 
   exit 0
 fi
+
+if [[$1 == "--experiments-1"]]; then 
+  echo "Using $2 nodes for N of $3"
+  cd streaming-benchmarks
+  for i in {0. .$3}
+  do 
+    bash ./stream-bench.sh SPARK_TEST 
+    python 
+
 
 
 
@@ -208,7 +218,7 @@ if [[ $1 == "--help" || $1 == "-h" || $1 == "" ]]; then
   #echo "--start-all                 Start cluster hadoop/spark default."
   #echo "---check-requirements       Check if the necessary Environment Variables are set"
   echo "--stop-all                  Stop cluster."
-  echo "--experiments-1 n           Runs the k-means experiments n times."
+  echo "--experiments-1 node n           Runs the k-means experiments n times."
   #echo "--experiments-2 n size      Runs the wordcount experiments n times. Size is optional, e.g. tiny, small, bigdata, large, huge, gigantic"
   exit 0
 fi
