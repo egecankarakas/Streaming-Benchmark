@@ -34,7 +34,7 @@ initial_setup() {
   bash pwd
 
   echo "will run setup from stream-bench"
-  bash ./streaming-bechmarks/stream-bench_.sh SETUP
+  bash ./streaming-benchmarks/stream-bench_.sh SETUP
 
 
   #need to copy spark configs to spark 
