@@ -30,23 +30,21 @@ SPARK_DIR="spark-$SPARK_VERSION-bin-hadoop2.7"
 #Get one of the closet apache mirrors
 APACHE_MIRROR=$"https://archive.apache.org/dist"
 
-ZK_HOST="localhost"
+ZK_HOST="node106.ib.cluster"
 ZK_PORT="2181"
 ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
 TOPIC=${TOPIC:-"ad-events"}
 PARTITIONS=${PARTITIONS:-1}
-LOAD=${LOAD:-10000}
+LOAD=${LOAD:-1000}
 #CONF_FILE=./conf/localConf.yaml
 CONF_FILE=./conf/benchmarkConf.yaml
 TEST_TIME=${TEST_TIME:-120}
 
 PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master"
 FLINK_NODES="102 103"
-ZK_NODES="104 105"
 REDIS_NODE="106"
 KAFKA_NODES="104 105"
 SELF_ID=$(hostname | grep -P '\d+' --only-matching)
-
 
 pid_match() {
    local VAL=`ps -aef | grep "$1" | grep -v grep | awk '{print $2}'`
@@ -183,41 +181,28 @@ run() {
 
   elif [ "START_ZK" = "$OPERATION" ];
   then
-    for node_zookeeper in $ZK_NODES
-    do
-      CMD="cd $PROJECT_DIR && ./stream-bench.sh START_LOCAL_ZK"
-      ssh -f "node$node_zookeeper" $CMD
-    done
-  elif [ "START_LOCAL_ZK" = "$OPERATION" ];
-  then
-    for node_zookeeper in $ZK_NODES
-    do
-      cp "$KAFKA_DIR/config/zookeeper.properties" "$KAFKA_DIR/config/zk_$node_zookeeper.properties"
-      if [ $node_zookeeper == $SELF_ID ]; then
-        echo "server.$node_zookeeper=0.0.0.0:2888:3888" >> "$KAFKA_DIR/config/zk_$node_zookeeper.properties"
-      else
-        echo "server.$node_zookeeper=:3888" >> "$KAFKA_DIR/config/zk_$node_zookeeper.properties"
-      fi
-    done
-    start_if_needed org.apache.zookeeper.server.quorum.QuorumPeerMain ZooKeeper 10 "$KAFKA_DIR/bin/zookeeper-server-start.sh" "$KAFKA_DIR/config/zk_$SELF_ID.properties"  
+    start_if_needed dev_zookeeper ZooKeeper 10 "$STORM_DIR/bin/storm" dev-zookeeper
   elif [ "STOP_ZK" = "$OPERATION" ];
   then
-    for node_zookeeper in $ZK_NODES
-    do
-      CMD="cd $PROJECT_DIR && ./stream-bench.sh STOP_LOCAL_ZK"
-      ssh -f "node$node_zookeeper" $CMD
-    done
-  elif [ "STOP_LOCAL_ZK" = "$OPERATION" ];
-  then
-    stop_if_needed org.apache.zookeeper.server.quorum.QuorumPeerMain ZooKeeper
+    stop_if_needed dev_zookeeper ZooKeeper
     rm -rf /tmp/dev-storm-zookeeper
   elif [ "START_REDIS" = "$OPERATION" ];
   then
-    start_if_needed redis-server Redis 1 "$REDIS_DIR/src/redis-server" "$REDIS_DIR/redis.conf"
+    CMD="cd $PROJECT_DIR && ./stream-bench.sh START_LOCAL_REDIS"
+    ssh -f "node$REDIS_NODE" $CMD
+  elif [ "START_LOCAL_REDIS" = "$OPERATION" ];
+  then
+    cp "$REDIS_DIR/redis.conf" "$REDIS_DIR/redis_test.conf"
+    echo "bind node$REDIS_NODE.ib.cluster" >> "$REDIS_DIR/redis_test.conf"
+    start_if_needed redis-server Redis 1 "$REDIS_DIR/src/redis-server" "$REDIS_DIR/redis_test.conf"
     cd data
     $LEIN run -n --configPath ../conf/benchmarkConf.yaml
     cd ..
   elif [ "STOP_REDIS" = "$OPERATION" ];
+  then
+    CMD="cd $PROJECT_DIR && ./stream-bench.sh STOP_LOCAL_REDIS"
+    ssh -f "node$REDIS_NODE" $CMD
+  elif [ "STOP_LOCAL_REDIS" = "$OPERATION" ];
   then
     stop_if_needed redis-server Redis
     rm -f dump.rdb
@@ -242,20 +227,14 @@ run() {
       CMD="cd $PROJECT_DIR && ./stream-bench.sh START_LOCAL_KAFKA"
       ssh -f "node$node_kafka" $CMD
     done
+    create_kafka_topic
   elif [ "START_LOCAL_KAFKA" = "$OPERATION" ];
   then
     cp "$KAFKA_DIR/config/server.properties" "$KAFKA_DIR/config/server_$SELF_ID.properties"
     echo "broker.id=$SELF_ID" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
-    zk_connect=""
-    for node_zookeeper in $ZK_NODES
-    do
-      if [ "x$zk_connect" == "x" ]; then
-        zk_connect+="node$node_zookeeper.ib.cluster:2181"
-      else
-        zk_connect+=",node$node_zookeeper.ib.cluster:2181"
-      fi
-    done
-    echo "zookeeper.connect=$zk_connect" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
+#    echo "host.name=node$SELF_ID.ib.cluster" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
+#    echo "advertised.host.name=node$SELF_ID.ib.cluster" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
+    echo "zookeeper.connect=$ZK_CONNECTIONS" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
     start_if_needed kafka\.Kafka Kafka 10 "$KAFKA_DIR/bin/kafka-server-start.sh" "$KAFKA_DIR/config/server_$SELF_ID.properties"
   elif [ "STOP_KAFKA" = "$OPERATION" ];
   then
@@ -408,8 +387,8 @@ run() {
     run "STOP_SPARK"
     run "STOP_FLINK_PROCESSING"
     run "STOP_FLINK"
-    run "STOP_STORM_TOPOLOGY"
-    run "STOP_STORM"
+#    run "STOP_STORM_TOPOLOGY"
+#    run "STOP_STORM"
     run "STOP_KAFKA"
     run "STOP_REDIS"
     run "STOP_ZK"

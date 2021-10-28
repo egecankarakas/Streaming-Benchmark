@@ -5,11 +5,11 @@ kafka.brokers:
     - "10.149.1.4 10.149.1.5"
 
 zookeeper.servers:
-    - "10.149.1.4 10.149.1.5"
+    - "10.149.1.6"
 
 kafka.port: 9092
 zookeeper.port: 2181
-redis.host: "10.149.1.254"
+redis.host: "10.149.1.6"
 kafka.topic: "ad-events"
 kafka.partitions: 200
 
