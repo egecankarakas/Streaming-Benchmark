@@ -12,6 +12,8 @@ initial_setup() {
   # PATH to install directory 
   install_dir=/var/scratch/$USER
 
+  
+
   echo "Starting setup"
   echo "Will Call stream-bench SETUP "
 
