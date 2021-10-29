@@ -233,7 +233,7 @@ run() {
     SPARK_FILE="$SPARK_DIR.tgz"
     fetch_untar_file "$SPARK_FILE" "$APACHE_MIRROR/spark/spark-$SPARK_VERSION/$SPARK_FILE"
 
- if [ "SETUP_SPARK" = "$OPERATION" ];
+ elif [ "SETUP_SPARK" = "$OPERATION" ];
   then
     echo 'kafka.brokers:' > $CONF_FILE
     kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
