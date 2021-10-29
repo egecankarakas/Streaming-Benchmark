@@ -235,7 +235,7 @@ run() {
 
  elif [ "SETUP_SPARK" = "$OPERATION" ];
   then
-    $GIT clean -fd
+    #$GIT clean -fd
     echo 'Start Setup Spark'
     echo 'kafka.brokers:' >> $CONF_FILE
     echo 'try 2'
