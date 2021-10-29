@@ -34,10 +34,15 @@ PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master"
 FLINK_NODES="node104.ib.cluster node105.ib.cluster node106.ib.cluster node107.ib.cluster"
 REDIS_NODE="node112.ib.cluster"
 KAFKA_NODES="node108.ib.cluster node109.ib.cluster node110.ib.cluster node111.ib.cluster"
+SPARK_MASTER=""
+SPARK_SLAVES=""
 SELF_ID=$(hostname | grep -P '\d+' --only-matching)
 NUM_HOSTS=4
 NUM_PROCS=4
 NUM_RUNS=100
+
+
+#for spark run must 
 
 ZK_HOST="node112.ib.cluster"
 ZK_PORT="2181"
@@ -48,6 +53,7 @@ LOAD=${LOAD:-10000}
 #CONF_FILE=./conf/localConf.yaml
 CONF_FILE=./conf/benchmarkConf.yaml
 TEST_TIME=${TEST_TIME:-120}
+
 
 
 pid_match() {
@@ -124,6 +130,9 @@ create_kafka_topic() {
         echo "Kafka topic $TOPIC already exists"
     fi
 }
+
+
+
 
 run() {
   OPERATION=$1
@@ -223,6 +232,104 @@ run() {
     #Fetch Spark
     SPARK_FILE="$SPARK_DIR.tgz"
     fetch_untar_file "$SPARK_FILE" "$APACHE_MIRROR/spark/spark-$SPARK_VERSION/$SPARK_FILE"
+
+ if [ "SETUP_SPARK" = "$OPERATION" ];
+  then
+    echo 'kafka.brokers:' > $CONF_FILE
+    kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
+    echo '    - "'$kafka_brokers'"' >> $CONF_FILE
+    echo >> $CONF_FILE
+    echo 'zookeeper.servers:' >> $CONF_FILE
+    zookeeper_host=$(getent hosts $ZK_HOST | awk '{ print $1}' | paste -sd " " -)
+    echo '    - "'$zookeeper_host'"' >> $CONF_FILE
+    echo >> $CONF_FILE
+    echo 'kafka.port: 9092' >> $CONF_FILE
+    echo 'zookeeper.port: '$ZK_PORT >> $CONF_FILE
+    redis_host=$(getent hosts $REDIS_NODE | awk '{ print $1}')
+    echo 'redis.host: "'$redis_host'"' >> $CONF_FILE
+    echo 'kafka.topic: "'$TOPIC'"' >> $CONF_FILE
+    echo 'kafka.partitions: '$PARTITIONS >> $CONF_FILE
+    echo 'process.hosts: '$NUM_HOSTS >> $CONF_FILE
+    echo 'process.cores: '$NUM_PROCS >> $CONF_FILE
+  #	echo 'storm.workers: 1' >> $CONF_FILE
+  #	echo 'storm.ackers: 2' >> $CONF_FILE
+    echo 'spark.batchtime: 2000' >> $CONF_FILE
+
+    #SPARK SETUP
+    truncate -s 0 streaming-benchmarks/$SPARK_DIR/conf/slaves
+    truncate -s 0 streaming-benchmarks/$SPARK_DIR/conf/spark-env.sh
+
+    echo "SPARK_MASTER_HOST=\"$SPARK_MASTER\"" >>streaming-benchmarks/$SPARK_DIR/conf/spark-env.sh
+
+    
+    for node in "${SPARK_SLAVES[@]:1}"; do
+      ssh "$node" 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}' >>streaming-benchmarks/$SPARK_DIR/conf/slaves
+    done
+
+    
+    start_if_needed org.apache.spark.deploy.master.Master SparkMaster 5 $SPARK_DIR/sbin/start-master.sh -h $SPARK_MASTER -p 7077
+    start_if_needed org.apache.spark.deploy.worker.Worker SparkSlave 5 $SPARK_DIR/sbin/start-slave.sh spark://$SPARK_MASTER:7077
+
+
+
+  
+  elif [ "SETUP" = "$OPERATION" ];
+  then
+    $GIT clean -fd
+
+    echo 'kafka.brokers:' > $CONF_FILE
+    echo '    - "localhost"' >> $CONF_FILE
+    echo >> $CONF_FILE
+    echo 'zookeeper.servers:' >> $CONF_FILE
+    echo '    - "'$ZK_HOST'"' >> $CONF_FILE
+    echo >> $CONF_FILE
+    echo 'kafka.port: 9092' >> $CONF_FILE
+    echo 'zookeeper.port: '$ZK_PORT >> $CONF_FILE
+    echo 'redis.host: "localhost"' >> $CONF_FILE
+    echo 'kafka.topic: "'$TOPIC'"' >> $CONF_FILE
+    echo 'kafka.partitions: '$PARTITIONS >> $CONF_FILE
+    echo 'process.hosts: 1' >> $CONF_FILE
+    echo 'process.cores: 4' >> $CONF_FILE
+  #	echo 'storm.workers: 1' >> $CONF_FILE
+  #	echo 'storm.ackers: 2' >> $CONF_FILE
+    echo 'spark.batchtime: 2000' >> $CONF_FILE
+	
+    $MVN clean install -Dspark.version="$SPARK_VERSION" -Dkafka.version="$KAFKA_VERSION" -Dflink.version="$FLINK_VERSION" -Dstorm.version="$STORM_VERSION" -Dscala.binary.version="$SCALA_BIN_VERSION" -Dscala.version="$SCALA_BIN_VERSION.$SCALA_SUB_VERSION" 
+
+#-Dapex.version="$APEX_VERSION"
+
+    #Fetch and build Redis
+    REDIS_FILE="$REDIS_DIR.tar.gz"
+    fetch_untar_file "$REDIS_FILE" "http://download.redis.io/releases/$REDIS_FILE"
+
+    cd $REDIS_DIR
+    $MAKE
+    cd ..
+
+    #Fetch Apex
+#    APEX_FILE="$APEX_DIR.tgz.gz"
+#    fetch_untar_file "$APEX_FILE" "$APACHE_MIRROR/apex/apache-apex-core-$APEX_VERSION/apex-$APEX_VERSION-source-release.tar.gz"
+#    cd $APEX_DIR
+#    $MVN clean install -DskipTests
+#    cd ..
+
+    #Fetch Kafka
+    KAFKA_FILE="$KAFKA_DIR.tgz"
+    fetch_untar_file "$KAFKA_FILE" "$APACHE_MIRROR/kafka/$KAFKA_VERSION/$KAFKA_FILE"
+
+    #Fetch Storm
+    STORM_FILE="$STORM_DIR.tar.gz"
+    fetch_untar_file "$STORM_FILE" "$APACHE_MIRROR/storm/$STORM_DIR/$STORM_FILE"
+
+    #Fetch Flink
+    FLINK_FILE="$FLINK_DIR-bin-hadoop27-scala_${SCALA_BIN_VERSION}.tgz"
+    fetch_untar_file "$FLINK_FILE" "$APACHE_MIRROR/flink/flink-$FLINK_VERSION/$FLINK_FILE"
+
+    #Fetch Spark
+    SPARK_FILE="$SPARK_DIR.tgz"
+    fetch_untar_file "$SPARK_FILE" "$APACHE_MIRROR/spark/spark-$SPARK_VERSION/$SPARK_FILE"
+
+
 
   elif [ "START_ZK" = "$OPERATION" ];
   then
@@ -378,6 +485,17 @@ run() {
     for ((i = 0 ; i < $NUM_RUNS ; i++)); do
       run "FLINK_TEST" && cd data && python dataformat.py -# $NUM_HOSTS -s flink -t $i && cd ..
     done
+
+  elif ["RUN_SPARK_BENCHMARK" = "$OPERATION"];
+  then 
+    #    python3 -m venv myenv
+    #    source myenv/bin/activate
+    #    pip install pandas
+    run "SETUP_SPARK"
+    for ((i = 0 ; i < $NUM_RUNS ; i++)); do
+      run "SPARK_TEST" && cd data && python dataformat.py -# $NUM_HOSTS -s spark -t $i && cd ..
+    done
+
   elif [ "STORM_TEST" = "$OPERATION" ];
   then
     run "START_ZK"
@@ -497,6 +615,7 @@ run() {
     echo "STOP_ALL: stop everything"
     echo
     echo "RUN_FLINK_BENCHMARK: run flink benchmark in DAS5"
+    echo "RUN_SPARK_BENCHMARK n t: run flink benchmark in DAS5"
     echo
     echo "HELP: print out this message"
     echo
