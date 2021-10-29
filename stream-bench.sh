@@ -235,6 +235,7 @@ run() {
 
  elif [ "SETUP_SPARK" = "$OPERATION" ];
   then
+    echo "Start Setup Spark"
     echo 'kafka.brokers:' > $CONF_FILE
     kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
     echo '    - "'$kafka_brokers'"' >> $CONF_FILE
@@ -491,7 +492,9 @@ run() {
     #    python3 -m venv myenv
     #    source myenv/bin/activate
     #    pip install pandas
+    echo "started runing spark benchmar"
     run "SETUP_SPARK"
+    echo "Done seting up spark"
     for ((i = 0 ; i < $NUM_RUNS ; i++)); do
       run "SPARK_TEST" && cd data && python dataformat.py -# $NUM_HOSTS -s spark -t $i && cd ..
     done
