@@ -240,6 +240,7 @@ run() {
     kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
     echo '    - "'$kafka_brokers'"' >> $CONF_FILE
     echo >> $CONF_FILE
+    echo "here"
     echo 'zookeeper.servers:' >> $CONF_FILE
     zookeeper_host=$(getent hosts $ZK_HOST | awk '{ print $1}' | paste -sd " " -)
     echo '    - "'$zookeeper_host'"' >> $CONF_FILE
@@ -255,6 +256,7 @@ run() {
   #	echo 'storm.workers: 1' >> $CONF_FILE
   #	echo 'storm.ackers: 2' >> $CONF_FILE
     echo 'spark.batchtime: 2000' >> $CONF_FILE
+    echo 'here 2'
 
     #SPARK SETUP
     truncate -s 0 streaming-benchmarks/$SPARK_DIR/conf/slaves
@@ -267,11 +269,12 @@ run() {
       ssh "$node" 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}' >>streaming-benchmarks/$SPARK_DIR/conf/slaves
     done
 
+    echo 'here 3'
     
     start_if_needed org.apache.spark.deploy.master.Master SparkMaster 5 $SPARK_DIR/sbin/start-master.sh -h $SPARK_MASTER -p 7077
     start_if_needed org.apache.spark.deploy.worker.Worker SparkSlave 5 $SPARK_DIR/sbin/start-slave.sh spark://$SPARK_MASTER:7077
 
-
+    wait
 
   
   elif [ "SETUP" = "$OPERATION" ];
@@ -485,6 +488,7 @@ run() {
     run "SETUP_FLINK"
     for ((i = 0 ; i < $NUM_RUNS ; i++)); do
       run "FLINK_TEST" && cd data && python dataformat.py -# $NUM_HOSTS -s flink -t $i && cd ..
+      wait
     done
 
   elif [ "RUN_SPARK_BENCHMARK" = "$OPERATION" ];
