@@ -240,7 +240,7 @@ run() {
     echo 'kafka.brokers:' >> $CONF_FILE
     echo 'try 2'
     #kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
-    kafka_brokers = "node55.ib.cluster"
+    kafka_brokers = 'node55.ib.cluster'
     echo '    - "'$kafka_brokers'"' >> $CONF_FILE
     echo >> $CONF_FILE
     echo "here"
