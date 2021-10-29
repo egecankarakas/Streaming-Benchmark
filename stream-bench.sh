@@ -237,7 +237,7 @@ run() {
   then
     echo 'Start Setup Spark'
     echo 'kafka.brokers:' >> $CONF_FILE
-    ehco 'try 2'
+    echo 'try 2'
     kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
     echo '    - "'$kafka_brokers'"' >> $CONF_FILE
     echo >> $CONF_FILE
