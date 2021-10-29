@@ -237,7 +237,7 @@ run() {
   then
     #$GIT clean -fd
     echo 'Start Setup Spark'
-    echo 'kafka.brokers:' >> $CONF_FILE
+    #echo 'kafka.brokers:' >> $CONF_FILE
     echo 'try 2'
     kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
     #kafka_brokers = 'node55.ib.cluster'
