@@ -30,18 +30,24 @@ SPARK_DIR="spark-$SPARK_VERSION-bin-hadoop2.7"
 #Get one of the closet apache mirrors
 APACHE_MIRROR=$"https://archive.apache.org/dist"
 
-ZK_HOST="localhost"
+PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master"
+FLINK_NODES="node104.ib.cluster node105.ib.cluster node106.ib.cluster node107.ib.cluster"
+REDIS_NODE="node112.ib.cluster"
+KAFKA_NODES="node108.ib.cluster node109.ib.cluster node110.ib.cluster node111.ib.cluster"
+SELF_ID=$(hostname | grep -P '\d+' --only-matching)
+NUM_HOSTS=4
+NUM_PROCS=4
+NUM_RUNS=100
+
+ZK_HOST="node112.ib.cluster"
 ZK_PORT="2181"
 ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
 TOPIC=${TOPIC:-"ad-events"}
-PARTITIONS=${PARTITIONS:-1}
-LOAD=${LOAD:-1000}
-CONF_FILE=./conf/localConf.yaml
-TEST_TIME=${TEST_TIME:-60}
-
-#should set my spark master to the master set by das5setup.sh file
-source $STARK_DIR/conf/spark-env.sh
-SPARK_MASTER=$SPARK_MASTER_HOST
+PARTITIONS=${PARTITIONS:-200}
+LOAD=${LOAD:-10000}
+#CONF_FILE=./conf/localConf.yaml
+CONF_FILE=./conf/benchmarkConf.yaml
+TEST_TIME=${TEST_TIME:-120}
 
 
 pid_match() {
@@ -121,7 +127,48 @@ create_kafka_topic() {
 
 run() {
   OPERATION=$1
-  if [ "SETUP" = "$OPERATION" ];
+  if [ "SETUP_FLINK" = "$OPERATION" ];
+  then
+    echo 'kafka.brokers:' > $CONF_FILE
+    kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
+    echo '    - "'$kafka_brokers'"' >> $CONF_FILE
+    echo >> $CONF_FILE
+    echo 'zookeeper.servers:' >> $CONF_FILE
+    zookeeper_host=$(getent hosts $ZK_HOST | awk '{ print $1}' | paste -sd " " -)
+    echo '    - "'$zookeeper_host'"' >> $CONF_FILE
+    echo >> $CONF_FILE
+    echo 'kafka.port: 9092' >> $CONF_FILE
+    echo 'zookeeper.port: '$ZK_PORT >> $CONF_FILE
+    redis_host=$(getent hosts $REDIS_NODE | awk '{ print $1}')
+    echo 'redis.host: "'$redis_host'"' >> $CONF_FILE
+    echo 'kafka.topic: "'$TOPIC'"' >> $CONF_FILE
+    echo 'kafka.partitions: '$PARTITIONS >> $CONF_FILE
+    echo 'process.hosts: '$NUM_HOSTS >> $CONF_FILE
+    echo 'process.cores: '$NUM_PROCS >> $CONF_FILE
+  #	echo 'storm.workers: 1' >> $CONF_FILE
+  #	echo 'storm.ackers: 2' >> $CONF_FILE
+    echo 'spark.batchtime: 2000' >> $CONF_FILE
+    
+    # FLINK SETTINGS
+    cp '../conf/flink_conf/flink-conf.yaml' $FLINK_DIR/conf/flink-conf.yaml
+    echo 'jobmanager.rpc.address: '$redis_host >> $FLINK_DIR/conf/flink-conf.yaml
+    echo 'jobmanager.heap.size: 1024m' >> $FLINK_DIR/conf/flink-conf.yaml
+    echo 'taskmanager.heap.size: 4096m' >> $FLINK_DIR/conf/flink-conf.yaml
+    echo 'taskmanager.numberOfTaskSlots: '1 >> $FLINK_DIR/conf/flink-conf.yaml
+    echo 'jobmanager.web.address: 0.0.0.0' >> $FLINK_DIR/conf/flink-conf.yaml
+    echo 'rest.port: 13345' >> $FLINK_DIR/conf/flink-conf.yaml
+    
+    echo "$redis_host:13345" > $FLINK_DIR/conf/masters
+    echo -n > $FLINK_DIR/conf/slaves
+    for worker in $FLINK_NODES
+    do
+      worker_host=$(getent hosts $worker | awk '{ print $1}')
+      for ((i = 0 ; i < $NUM_PROCS ; i++)); do
+        echo $worker_host >> $FLINK_DIR/conf/slaves
+      done
+    done
+  
+  elif [ "SETUP" = "$OPERATION" ];
   then
     $GIT clean -fd
 
@@ -132,15 +179,15 @@ run() {
     echo '    - "'$ZK_HOST'"' >> $CONF_FILE
     echo >> $CONF_FILE
     echo 'kafka.port: 9092' >> $CONF_FILE
-	echo 'zookeeper.port: '$ZK_PORT >> $CONF_FILE
-	echo 'redis.host: "localhost"' >> $CONF_FILE
-	echo 'kafka.topic: "'$TOPIC'"' >> $CONF_FILE
-	echo 'kafka.partitions: '$PARTITIONS >> $CONF_FILE
-	echo 'process.hosts: 1' >> $CONF_FILE
-	echo 'process.cores: 4' >> $CONF_FILE
-#	echo 'storm.workers: 1' >> $CONF_FILE
-#	echo 'storm.ackers: 2' >> $CONF_FILE
-	echo 'spark.batchtime: 2000' >> $CONF_FILE
+    echo 'zookeeper.port: '$ZK_PORT >> $CONF_FILE
+    echo 'redis.host: "localhost"' >> $CONF_FILE
+    echo 'kafka.topic: "'$TOPIC'"' >> $CONF_FILE
+    echo 'kafka.partitions: '$PARTITIONS >> $CONF_FILE
+    echo 'process.hosts: 1' >> $CONF_FILE
+    echo 'process.cores: 4' >> $CONF_FILE
+  #	echo 'storm.workers: 1' >> $CONF_FILE
+  #	echo 'storm.ackers: 2' >> $CONF_FILE
+    echo 'spark.batchtime: 2000' >> $CONF_FILE
 	
     $MVN clean install -Dspark.version="$SPARK_VERSION" -Dkafka.version="$KAFKA_VERSION" -Dflink.version="$FLINK_VERSION" -Dstorm.version="$STORM_VERSION" -Dscala.binary.version="$SCALA_BIN_VERSION" -Dscala.version="$SCALA_BIN_VERSION.$SCALA_SUB_VERSION" 
 
@@ -179,6 +226,7 @@ run() {
 
   elif [ "START_ZK" = "$OPERATION" ];
   then
+    mkdir -p /tmp/dev-storm-zookeeper
     start_if_needed dev_zookeeper ZooKeeper 10 "$STORM_DIR/bin/storm" dev-zookeeper
   elif [ "STOP_ZK" = "$OPERATION" ];
   then
@@ -186,11 +234,21 @@ run() {
     rm -rf /tmp/dev-storm-zookeeper
   elif [ "START_REDIS" = "$OPERATION" ];
   then
-    start_if_needed redis-server Redis 1 "$REDIS_DIR/src/redis-server"
+    CMD="cd $PROJECT_DIR && ./stream-bench.sh START_LOCAL_REDIS"
+    ssh -f "$REDIS_NODE" $CMD
+  elif [ "START_LOCAL_REDIS" = "$OPERATION" ];
+  then
+    cp "$REDIS_DIR/redis.conf" "$REDIS_DIR/redis_test.conf"
+    echo "bind $REDIS_NODE" >> "$REDIS_DIR/redis_test.conf"
+    start_if_needed redis-server Redis 1 "$REDIS_DIR/src/redis-server" "$REDIS_DIR/redis_test.conf"
     cd data
     $LEIN run -n --configPath ../conf/benchmarkConf.yaml
     cd ..
   elif [ "STOP_REDIS" = "$OPERATION" ];
+  then
+    CMD="cd $PROJECT_DIR && ./stream-bench.sh STOP_LOCAL_REDIS"
+    ssh -f "$REDIS_NODE" $CMD
+  elif [ "STOP_LOCAL_REDIS" = "$OPERATION" ];
   then
     stop_if_needed redis-server Redis
     rm -f dump.rdb
@@ -207,11 +265,32 @@ run() {
     stop_if_needed daemon.name=supervisor "Storm Supervisor"
     stop_if_needed daemon.name=ui "Storm UI"
     stop_if_needed daemon.name=logviewer "Storm LogViewer"
+
   elif [ "START_KAFKA" = "$OPERATION" ];
   then
-    start_if_needed kafka\.Kafka Kafka 10 "$KAFKA_DIR/bin/kafka-server-start.sh" "$KAFKA_DIR/config/server.properties"
+    for node_kafka in $KAFKA_NODES
+    do
+      CMD="cd $PROJECT_DIR && ./stream-bench.sh START_LOCAL_KAFKA"
+      ssh -f "$node_kafka" $CMD
+    done
     create_kafka_topic
+  elif [ "START_LOCAL_KAFKA" = "$OPERATION" ];
+  then
+    cp "../conf/kafka_conf/server.properties" "$KAFKA_DIR/config/server_$SELF_ID.properties"
+    echo "broker.id=$SELF_ID" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
+    echo "host.name=node$SELF_ID.ib.cluster" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
+    echo "advertised.host.name=node$SELF_ID.ib.cluster" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
+    echo "zookeeper.connect=$ZK_CONNECTIONS" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
+    mkdir -p /tmp/kafka-logs/
+    start_if_needed kafka\.Kafka Kafka 15 "$KAFKA_DIR/bin/kafka-server-start.sh" "$KAFKA_DIR/config/server_$SELF_ID.properties"
   elif [ "STOP_KAFKA" = "$OPERATION" ];
+  then
+    for node_kafka in $KAFKA_NODES
+    do
+      CMD="cd $PROJECT_DIR && ./stream-bench.sh STOP_LOCAL_KAFKA"
+      ssh -f "$node_kafka" $CMD
+    done
+  elif [ "STOP_LOCAL_KAFKA" = "$OPERATION" ];
   then
     stop_if_needed kafka\.Kafka Kafka
     rm -rf /tmp/kafka-logs/
@@ -290,6 +369,15 @@ run() {
 #        "$APEX_DIR/engine/src/main/scripts/apex" -e "kill-app $APP_ID"
 #         sleep 3
 #       fi
+  elif [ "RUN_FLINK_BENCHMARK" = "$OPERATION" ];
+  then
+    #    python3 -m venv myenv
+    #    source myenv/bin/activate
+    #    pip install pandas
+    run "SETUP_FLINK"
+    for ((i = 0 ; i < $NUM_RUNS ; i++)); do
+      run "FLINK_TEST" && cd data && python dataformat.py -# $NUM_HOSTS -s flink -t $i && cd ..
+    done
   elif [ "STORM_TEST" = "$OPERATION" ];
   then
     run "START_ZK"
@@ -361,8 +449,8 @@ run() {
     run "STOP_SPARK"
     run "STOP_FLINK_PROCESSING"
     run "STOP_FLINK"
-    run "STOP_STORM_TOPOLOGY"
-    run "STOP_STORM"
+#    run "STOP_STORM_TOPOLOGY"
+#    run "STOP_STORM"
     run "STOP_KAFKA"
     run "STOP_REDIS"
     run "STOP_ZK"
@@ -374,11 +462,12 @@ run() {
     fi
     echo "Supported Operations:"
     echo "SETUP: download and setup dependencies for running a single node test"
+    echo "SETUP_FLINK: setup flink cluster for DAS5"
     echo "START_ZK: run a single node ZooKeeper instance on local host in the background"
     echo "STOP_ZK: kill the ZooKeeper instance"
     echo "START_REDIS: run a redis instance in the background"
     echo "STOP_REDIS: kill the redis instance"
-    echo "START_KAFKA: run kafka in the background"
+    echo "START_KAFKA: run kafka cluster in the background"
     echo "STOP_KAFKA: kill kafka"
     echo "START_LOAD: run kafka load generation"
     echo "STOP_LOAD: kill kafka load generation"
@@ -406,6 +495,8 @@ run() {
     echo
     echo "APEX_TEST: run Apex test (assumes SETUP is done)"
     echo "STOP_ALL: stop everything"
+    echo
+    echo "RUN_FLINK_BENCHMARK: run flink benchmark in DAS5"
     echo
     echo "HELP: print out this message"
     echo

@@ -28,7 +28,7 @@ def createDataFile(numbNode = 1 , system = 'spark', testNumber = '1'):
     #df.columns(['countOfEvent','latancyTime','#Nodes','testNubber','systems'])
     #print(df)
 
-    df.to_csv("test_Nodes-{}_System-{}_Test-{}.csv".format(numberOfNodes,system,testnumber))
+    df.to_csv(f"test_Nodes-{numbNode}_System-{system}_Test-{testNumber}.csv")
 
     return
 
@@ -49,11 +49,14 @@ def main(argv):
             sys.exit()
         elif opt in ("-#","--#Node"):
             numberOfNodes = arg
-        elif opt is "spark":
-            if args in ("sp","ar"):
-                system = "spark"
-            else: 
-                system = "flink"
+        elif opt in ("-s","--System"):
+            system = arg
+            #if args in ("sp","ar"):
+            #    system = "spark"
+            #elif arg is "flink":
+            #    system = "flink"
+            #else: 
+            #    system = "flink"
             print(system)
         elif opt in ("-t","testNumber"):
             #an idicator of what test we are doing
@@ -66,6 +69,5 @@ if __name__ == "__main__":
 
     numberOfNodes, system, testnumber = main(sys.argv[1:]) 
     createDataFile(numberOfNodes, system, testnumber)
-
 
 
