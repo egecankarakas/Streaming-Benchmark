@@ -235,7 +235,7 @@ run() {
 
  elif [ "SETUP_SPARK" = "$OPERATION" ];
   then
-    echo "Start Setup Spark"
+    echo 'Start Setup Spark'
     echo 'kafka.brokers:' >> $CONF_FILE
     kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
     echo '    - "'$kafka_brokers'"' >> $CONF_FILE
