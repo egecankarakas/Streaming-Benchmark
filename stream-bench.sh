@@ -615,7 +615,7 @@ run() {
     echo "STOP_ALL: stop everything"
     echo
     echo "RUN_FLINK_BENCHMARK: run flink benchmark in DAS5"
-    echo "RUN_SPARK_BENCHMARK n t: run flink benchmark in DAS5"
+    echo "RUN_SPARK_BENCHMARK: run flink benchmark in DAS5"
     echo
     echo "HELP: print out this message"
     echo
