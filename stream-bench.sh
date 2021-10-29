@@ -32,10 +32,10 @@ APACHE_MIRROR=$"https://archive.apache.org/dist"
 
 PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master"
 FLINK_NODES="node104.ib.cluster node105.ib.cluster node106.ib.cluster node107.ib.cluster"
-REDIS_NODE="node112.ib.cluster"
-KAFKA_NODES="node108.ib.cluster node109.ib.cluster node110.ib.cluster node111.ib.cluster"
-SPARK_MASTER=""
-SPARK_SLAVES=""
+REDIS_NODE="node54.ib.cluster"
+KAFKA_NODES="node55.ib.cluster node56.ib.cluster"
+SPARK_MASTER="node57.ib.cluster"
+SPARK_SLAVES="node58.ib.cluster"
 SELF_ID=$(hostname | grep -P '\d+' --only-matching)
 NUM_HOSTS=4
 NUM_PROCS=4
@@ -44,7 +44,7 @@ NUM_RUNS=100
 
 #for spark run must 
 
-ZK_HOST="node112.ib.cluster"
+ZK_HOST="node54.ib.cluster"
 ZK_PORT="2181"
 ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
 TOPIC=${TOPIC:-"ad-events"}
@@ -235,6 +235,7 @@ run() {
 
  elif [ "SETUP_SPARK" = "$OPERATION" ];
   then
+    $GIT clean -fd
     echo 'Start Setup Spark'
     echo 'kafka.brokers:' >> $CONF_FILE
     echo 'try 2'
