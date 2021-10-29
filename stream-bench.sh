@@ -371,9 +371,12 @@ run() {
 #       fi
   elif [ "RUN_FLINK_BENCHMARK" = "$OPERATION" ];
   then
+    #    python3 -m venv myenv
+    #    source myenv/bin/activate
+    #    pip install pandas
     run "SETUP_FLINK"
     for ((i = 0 ; i < $NUM_RUNS ; i++)); do
-      run "FLINK_TEST" && cd data && python dataformat.py -# 2 -s flink -t $i && cd ..
+      run "FLINK_TEST" && cd data && python dataformat.py -# $NUM_HOSTS -s flink -t $i && cd ..
     done
   elif [ "STORM_TEST" = "$OPERATION" ];
   then
@@ -453,11 +456,12 @@ run() {
     fi
     echo "Supported Operations:"
     echo "SETUP: download and setup dependencies for running a single node test"
+    echo "SETUP_FLINK: setup flink cluster for DAS5"
     echo "START_ZK: run a single node ZooKeeper instance on local host in the background"
     echo "STOP_ZK: kill the ZooKeeper instance"
     echo "START_REDIS: run a redis instance in the background"
     echo "STOP_REDIS: kill the redis instance"
-    echo "START_KAFKA: run kafka in the background"
+    echo "START_KAFKA: run kafka cluster in the background"
     echo "STOP_KAFKA: kill kafka"
     echo "START_LOAD: run kafka load generation"
     echo "STOP_LOAD: kill kafka load generation"
@@ -482,6 +486,8 @@ run() {
     echo "SPARK_TEST: run spark test (assumes SETUP is done)"
     echo "APEX_TEST: run Apex test (assumes SETUP is done)"
     echo "STOP_ALL: stop everything"
+    echo
+    echo "RUN_FLINK_BENCHMARK: run flink benchmark in DAS5"
     echo
     echo "HELP: print out this message"
     echo
