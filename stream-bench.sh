@@ -486,7 +486,7 @@ run() {
       run "FLINK_TEST" && cd data && python dataformat.py -# $NUM_HOSTS -s flink -t $i && cd ..
     done
 
-  elif ["RUN_SPARK_BENCHMARK" = "$OPERATION"];
+  elif [ "RUN_SPARK_BENCHMARK" = "$OPERATION" ];
   then 
     #    python3 -m venv myenv
     #    source myenv/bin/activate
