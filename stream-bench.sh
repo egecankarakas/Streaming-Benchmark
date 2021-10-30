@@ -34,13 +34,13 @@ PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master/"
 #FLINK_NODES="node104.ib.cluster node105.ib.cluster node106.ib.cluster node107.ib.cluster"
 FLINK_NODES=""
 REDIS_NODE="node301.ib.cluster"
-KAFKA_NODES="node302.ib.cluster node303.ib.cluster node304.ib.cluster node305.ib.cluster"
+KAFKA_NODES="node302.ib.cluster node303.ib.cluster node304.ib.cluster node305.ib.cluster node306.ib.cluster node307.ib.cluster node308.ib.cluster node309.ib.cluster"
 SPARK_MASTER="node301.ib.cluster"
-SPARK_SLAVES="node306.ib.cluster node307.ib.cluster node308.ib.cluster node309.ib.cluster"
+SPARK_SLAVES="node310.ib.cluster node311.ib.cluster node312.ib.cluster node313.ib.cluster node314.ib.cluster node315.ib.cluster node316.ib.cluster node317.ib.cluster"
 SELF_ID=$(hostname | grep -P '\d+' --only-matching)
-NUM_HOSTS=4
+NUM_HOSTS=8
 NUM_PROCS=1
-NUM_RUNS=100
+NUM_RUNS=55
 
 
 #for spark run must 
@@ -600,6 +600,14 @@ run() {
     run "STOP_KAFKA"
     run "STOP_REDIS"
     run "STOP_ZK"
+  elif [ "STOP_SPARK_BENCHMARK" = "$OPERATION" ];
+  then
+    run "STOP_LOAD"
+    run "STOP_SPARK_PROCESSING"
+    run "STOP_SPARK"
+    run "STOP_KAFKA"
+    run "STOP_REDIS"
+    run "STOP_ZK"
   else
     if [ "HELP" != "$OPERATION" ];
     then
@@ -644,6 +652,8 @@ run() {
     echo
     echo "RUN_FLINK_BENCHMARK: run flink benchmark in DAS5"
     echo "RUN_SPARK_BENCHMARK: run flink benchmark in DAS5"
+    echo
+    echo "STOP_SPARK_BENCHMARK: run flink benchmark in DAS5"
     echo
     echo "HELP: print out this message"
     echo

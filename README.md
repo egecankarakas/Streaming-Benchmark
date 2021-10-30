@@ -3,18 +3,14 @@ Reproducing "Benchmarking Distributed Stream Data Processing Systems" paper
 
 
 # SPARK TEST
-In order to run spark test. 
-reserve nodes 
-you have to be in scratch directory 
-
-go the master node
-co the file
 
 
-## Resever nodes
+
+## Procedure nodes
 1) With the number of spark nodes you would like to test being n. 
-2) Reverse a total about of nodes equal to n*2+1. This will provide enough enodes for a RedisNode, Seperate Kafka nodes and your spark nodes. 
-3) edit stream-bench.sh file manually set REDIS_NODE IP, KAFKA NODE ID ,SPARK_MASTER IP, SPARK_SLAVES
+2) Reverse a total about of nodes equal to n*2+1. This will provide enough enodes for a RedisNode, Seperate Kafka nodes and your spark nodes.
+3) setup python envorment with source venv/bin/activate 
+3) edit stream-bench.sh file manually set REDIS_NODE IP, KAFKA NODE ID ,SPARK_MASTER IP, SPARK_SLAVES, and if need be change project directory
 6) You are now able to run ./stream-bench.sh RUN_SPARK_BENCHMARK
 
 # DataFormaing 
