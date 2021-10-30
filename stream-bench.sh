@@ -30,21 +30,22 @@ SPARK_DIR="spark-$SPARK_VERSION-bin-hadoop2.7"
 #Get one of the closet apache mirrors
 APACHE_MIRROR=$"https://archive.apache.org/dist"
 
-PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master"
-FLINK_NODES="node104.ib.cluster node105.ib.cluster node106.ib.cluster node107.ib.cluster"
-REDIS_NODE="node54.ib.cluster"
-KAFKA_NODES="node55.ib.cluster node56.ib.cluster"
-SPARK_MASTER="node57.ib.cluster"
-SPARK_SLAVES="node58.ib.cluster"
+PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master/"
+#FLINK_NODES="node104.ib.cluster node105.ib.cluster node106.ib.cluster node107.ib.cluster"
+FLINK_NODES=""
+REDIS_NODE="node301.ib.cluster"
+KAFKA_NODES="node302.ib.cluster node303.ib.cluster node304.ib.cluster node305.ib.cluster"
+SPARK_MASTER="node301.ib.cluster"
+SPARK_SLAVES="node306.ib.cluster node307.ib.cluster node308.ib.cluster node309.ib.cluster"
 SELF_ID=$(hostname | grep -P '\d+' --only-matching)
 NUM_HOSTS=4
-NUM_PROCS=4
+NUM_PROCS=1
 NUM_RUNS=100
 
 
 #for spark run must 
 
-ZK_HOST="node54.ib.cluster"
+ZK_HOST="node301.ib.cluster"
 ZK_PORT="2181"
 ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
 TOPIC=${TOPIC:-"ad-events"}
@@ -237,7 +238,7 @@ run() {
   then
     #$GIT clean -fd
     echo 'Start Setup Spark'
-    #echo 'kafka.brokers:' >> $CONF_FILE
+    echo 'kafka.brokers:' > $CONF_FILE
     echo 'try 2'
     kafka_brokers=$(getent hosts $KAFKA_NODES | awk '{ print $1}' | paste -sd " " -)
     #kafka_brokers = 'node55.ib.cluster'
@@ -262,20 +263,30 @@ run() {
     echo 'here 2'
 
     #SPARK SETUP
-    truncate -s 0 streaming-benchmarks/$SPARK_DIR/conf/slaves
-    truncate -s 0 streaming-benchmarks/$SPARK_DIR/conf/spark-env.sh
+    truncate -s 0 $SPARK_DIR/conf/slaves
+    truncate -s 0 $SPARK_DIR/conf/spark-env.sh
 
-    echo "SPARK_MASTER_HOST=\"$SPARK_MASTER\"" >>streaming-benchmarks/$SPARK_DIR/conf/spark-env.sh
+    echo "SPARK_MASTER_HOST=\"$SPARK_MASTER\"" >> $SPARK_DIR/conf/spark-env.sh
 
-    
-    for node in "${SPARK_SLAVES[@]:1}"; do
-      ssh "$node" 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}' >>streaming-benchmarks/$SPARK_DIR/conf/slaves
+    echo -n > $SPARK_DIR/conf/slaves
+    for worker in $SPARK_SLAVES
+    do
+      worker_host=$(getent hosts $worker | awk '{ print $1}')
+      for ((i = 0 ; i < $NUM_PROCS ; i++)); do
+        echo $worker_host >> $SPARK_DIR/conf/slaves
+      done
     done
+    
+    cp $SPARK_DIR/conf/spark-defaults.conf.template $SPARK_DIR/conf/spark-defaults.conf
+    echo "spark.master                     spark://$SPARK_MASTER:7077" >> $SPARK_DIR/conf/spark-defaults.conf
+    
+    
+    #for node in $SPARK_SLAVES; do
+    #  echo $node >> $SPARK_DIR/conf/slaves
+    #done
 
     echo 'here 3'
     
-    start_if_needed org.apache.spark.deploy.master.Master SparkMaster 5 $SPARK_DIR/sbin/start-master.sh -h $SPARK_MASTER -p 7077
-    start_if_needed org.apache.spark.deploy.worker.Worker SparkSlave 5 $SPARK_DIR/sbin/start-slave.sh spark://$SPARK_MASTER:7077
 
     wait
 
@@ -416,13 +427,17 @@ run() {
     $FLINK_DIR/bin/stop-cluster.sh
   elif [ "START_SPARK" = "$OPERATION" ];
   then
-    start_if_needed org.apache.spark.deploy.master.Master SparkMaster 5 $SPARK_DIR/sbin/start-master.sh -h $SPARK_MASTER -p 7077
-    start_if_needed org.apache.spark.deploy.worker.Worker SparkSlave 5 $SPARK_DIR/sbin/start-slave.sh spark://$SPARK_MASTER:7077
+    ssh -f $SPARK_MASTER $PROJECT_DIR$SPARK_DIR/sbin/start-all.sh
+    sleep 15
+#    start_if_needed org.apache.spark.deploy.master.Master SparkMaster 5 $SPARK_DIR/sbin/start-master.sh -h $SPARK_MASTER -p 7077
+#    start_if_needed org.apache.spark.deploy.worker.Worker SparkSlave 5 $SPARK_DIR/sbin/start-slave.sh spark://$SPARK_MASTER:7077
   elif [ "STOP_SPARK" = "$OPERATION" ];
   then
-    stop_if_needed org.apache.spark.deploy.master.Master SparkMaster
-    stop_if_needed org.apache.spark.deploy.worker.Worker SparkSlave
-    sleep 3
+    ssh -f $SPARK_MASTER $PROJECT_DIR$SPARK_DIR/sbin/stop-all.sh
+    sleep 15
+#    stop_if_needed org.apache.spark.deploy.master.Master SparkMaster
+#    stop_if_needed org.apache.spark.deploy.worker.Worker SparkSlave
+#    sleep 3
   elif [ "START_LOAD" = "$OPERATION" ];
   then
     cd data
@@ -444,7 +459,7 @@ run() {
     sleep 10
   elif [ "START_SPARK_PROCESSING" = "$OPERATION" ];
   then
-    "$SPARK_DIR/bin/spark-submit" --master spark://10.149.0.54:7077 --class spark.benchmark.KafkaRedisAdvertisingStream ./spark-benchmarks/target/spark-benchmarks-0.1.0.jar "$CONF_FILE" &
+    "$SPARK_DIR/bin/spark-submit" --master "spark://$SPARK_MASTER:7077" --class spark.benchmark.KafkaRedisAdvertisingStream ./spark-benchmarks/target/spark-benchmarks-0.1.0.jar "$CONF_FILE" &
     sleep 5
   elif [ "STOP_SPARK_PROCESSING" = "$OPERATION" ];
   then
@@ -503,7 +518,10 @@ run() {
     run "SETUP_SPARK"
     echo "Done seting up spark"
     for ((i = 0 ; i < $NUM_RUNS ; i++)); do
-      run "SPARK_TEST" && cd data && python dataformat.py -# $NUM_HOSTS -s spark -t $i && cd ..
+      run "SPARK_TEST"
+      cd data 
+      python dataformat.py -# $NUM_HOSTS -s spark -t $i 
+      cd ..
     done
 
   elif [ "STORM_TEST" = "$OPERATION" ];
@@ -643,3 +661,4 @@ else
     shift
   done
 fi
+

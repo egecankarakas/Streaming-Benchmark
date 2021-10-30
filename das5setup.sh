@@ -68,7 +68,7 @@ initial_setup_spark() {
   # setup driver node of spark (running next to yarn) in standalone and configs of spark in standalone
   echo "" > $SPARK_DIR/conf/spark-env.sh
   driver=$(ssh ${nodes[0]} 'ifconfig' | grep 'inet 10.149.*' | awk '{print $2}')
-  echo "SPARK_MASTER_HOST=\"$driver\"" >>streaming-benchmarks/$SPARK_DIR/conf/spark-env.sh
+  echo "SPARK_MASTER_HOST=\"$diver\"" >>streaming-benchmarks/$SPARK_DIR/conf/spark-env.sh
 
   #ssh "$driver" "rm -rf /local/$USER/spark/*"
   #ssh "$driver" "mkdir -p /local/$USER/spark/"
