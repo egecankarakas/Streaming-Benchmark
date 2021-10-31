@@ -60,6 +60,7 @@ REDUCED_TEST_TIME=${REDUCED_TEST_TIME:-40}
 
 
 
+
 pid_match() {
    local VAL=`ps -aef | grep "$1" | grep -v grep | awk '{print $2}'`
    echo $VAL
@@ -750,7 +751,7 @@ run() {
     echo "RUN_SPARK_BENCHMARK: run spark benchmark in DAS5"
     echo "RUN_SPARK_FB: run spark benchmark in DAS5 for fluctuated workload experiment"
     echo
-    echo "STOP_SPARK_BENCHMARK: run flink benchmark in DAS5"
+    echo "STOP_SPARK_BENCHMARK: stop spark benchmark in DAS5"
     echo
     echo "HELP: print out this message"
     echo
