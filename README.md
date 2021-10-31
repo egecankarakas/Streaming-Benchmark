@@ -1,8 +1,45 @@
 # Streaming-Benchmark
-Reproducing "Benchmarking Distributed Stream Data Processing Systems" paper
+Reproducing "Benchmarking Distributed Stream Data Processing Systems" paper with Yahoo Streaming Benchmark.
 
+# SETUP
+Project is designed to work in /var/scratch/$USER/ path in DAS-5 cluster. Make sure you are using Python3.6 or higher and Java1.8 set.
+YSB project also requires MVN_HOME to be set, and LEIN to be installed and set. For those you can check .bashrc profile.
 
-# SPARK TEST
+We start with getting YSB Project. Simply get Yahoo Streaming benchmark
+```bash 
+wget https://github.com/yahoo/streaming-benchmarks/archive/refs/heads/master.zip
+cp stream-bench.sh streaming-benchmarks-master/
+cd streaming-benchmarks-master
+./stream-bench.sh SETUP
+```
+If you get error in the SETUP phase, you can use the update pom.xml files which is worked to resolve dependency issues.
+
+From here on, we will be using updated script to run the benchmarks.
+# EXPERIMENT SETUP
+Benchmark script is designed to work with no arguments. Therefore, before running any experiment, make sure to set following variables
+PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master/"
+#FLINK_NODES="node117.ib.cluster node118.ib.cluster"
+FLINK_NODES="node301.ib.cluster node302.ib.cluster node303.ib.cluster node304.ib.cluster"
+REDIS_NODE="node310.ib.cluster"
+KAFKA_NODES="node305.ib.cluster node306.ib.cluster node307.ib.cluster node308.ib.cluster"
+SPARK_MASTER=""
+SPARK_SLAVES=""
+ZK_HOST="node310.ib.cluster"
+REDUCED_LOAD_HOST="node309.ib.cluster"
+SELF_ID=$(hostname | grep -P '\d+' --only-matching)
+NUM_HOSTS=4
+NUM_PROCS=1
+NUM_RUNS=55
+ZK_PORT="2181"
+ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
+TOPIC=${TOPIC:-"ad-events"}
+PARTITIONS=${PARTITIONS:-200}
+LOAD=${LOAD:-10000}
+LOAD_REDUCED=${LOAD:-1000}
+#CONF_FILE=./conf/localConf.yaml
+CONF_FILE=./conf/benchmarkConf.yaml
+TEST_TIME=${TEST_TIME:-120}
+REDUCED_TEST_TIME=${REDUCED_TEST_TIME:-40}
 
 
 
