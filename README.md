@@ -17,7 +17,7 @@ If you get error in the SETUP phase, you can use the update pom.xml files which 
 From here on, we will be using updated script to run the benchmarks.
 # EXPERIMENT SETUP
 Benchmark script is designed to work with no arguments. Therefore, before running any experiment, make sure to set following variables
-PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master/"
+PROJECT_DIR="/var/scratch/$USER/streaming-benchmarks-master/"
 #FLINK_NODES="node117.ib.cluster node118.ib.cluster"
 FLINK_NODES="node301.ib.cluster node302.ib.cluster node303.ib.cluster node304.ib.cluster"
 REDIS_NODE="node310.ib.cluster"
