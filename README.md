@@ -17,32 +17,34 @@ If you get error in the SETUP phase, you can use the update pom.xml files which 
 From here on, we will be using updated script to run the benchmarks.
 # EXPERIMENT SETUP
 Benchmark script is designed to work with no arguments. Therefore, before running any experiment, make sure to set following variables
-```bash
-PROJECT_DIR="/var/scratch/$USER/streaming-benchmarks-master/"
-#FLINK_NODES="node117.ib.cluster node118.ib.cluster"
-FLINK_NODES="node301.ib.cluster node302.ib.cluster node303.ib.cluster node304.ib.cluster"
-REDIS_NODE="node310.ib.cluster"
-KAFKA_NODES="node305.ib.cluster node306.ib.cluster node307.ib.cluster node308.ib.cluster"
+```bash 
+PROJECT_DIR="/var/scratch/$whoami/streaming-benchmarks-master/"
+FLINK_NODES="nodeXX.ib.cluster nodeYY.ib.cluster" # 
+REDIS_NODE="nodeXX.ib.cluster"
+KAFKA_NODES="nodeXX.ib.cluster nodeYY.ib.cluster"
 SPARK_MASTER=""
 SPARK_SLAVES=""
-ZK_HOST="node310.ib.cluster"
-REDUCED_LOAD_HOST="node309.ib.cluster"
-SELF_ID=$(hostname | grep -P '\d+' --only-matching)
-NUM_HOSTS=4
-NUM_PROCS=1
-NUM_RUNS=55
-ZK_PORT="2181"
+ZK_HOST="nodeXX.ib.cluster"
+REDUCED_LOAD_HOST="nodeXX.ib.cluster"
+NUM_HOSTS=4 # How many hosts for SUT
+NUM_PROCS=1 # how many parallel procs
+NUM_RUNS=55 # Repeat
+ZK_PORT="2181" 
 ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
 TOPIC=${TOPIC:-"ad-events"}
-PARTITIONS=${PARTITIONS:-200}
-LOAD=${LOAD:-10000}
-LOAD_REDUCED=${LOAD:-1000}
-#CONF_FILE=./conf/localConf.yaml
-CONF_FILE=./conf/benchmarkConf.yaml
+PARTITIONS=${PARTITIONS:-200} # Kafka Partitions
+LOAD=${LOAD:-10000} # LOAD
+LOAD_REDUCED=${LOAD:-1000} # Load for fluctuated workload benchmarks
+CONF_FILE=./conf/benchmarkConf.yaml 
 TEST_TIME=${TEST_TIME:-120}
 REDUCED_TEST_TIME=${REDUCED_TEST_TIME:-40}
 ```
 
+## Running Experiments
+For instance to run flink benchmark, simply run following command to run the benchmark. For other options check help
+```bash
+./stream-bench.sh RUN_FLINK_BENCHMARK
+```
 
 ## Procedure nodes
 1) With the number of spark nodes you would like to test being n. 
@@ -52,7 +54,7 @@ REDUCED_TEST_TIME=${REDUCED_TEST_TIME:-40}
 6) You are now able to run ./stream-bench.sh RUN_SPARK_BENCHMARK
 
 # DataFormaing 
-The streaming-benchmark library returns data in 2 different files 1 being the seen.txt and the other hte update.txt file. This is the python script to create 1 csv with this data. So we can run muliptle test and not have to edit the test script. Possible Flags
+The streaming-benchmark library returns data in 2 different files 1 being the seen.txt and the other hte update.txt file. This is the python script to create 1 csv with this data. So we can run muliptle test and not have to edit the test script. Possible Flags. This is done automatically when running Flink and Spark Benchmarks
 -# number of nodes used in test 
 -s the system used for us spark or flink 
 -t test number - self ID. 
