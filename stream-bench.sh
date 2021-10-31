@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 # Copyright 2015, Yahoo Inc.
 # Licensed under the terms of the Apache License 2.0. Please see LICENSE file in the project root for terms.
 set -o pipefail
@@ -31,29 +31,33 @@ SPARK_DIR="spark-$SPARK_VERSION-bin-hadoop2.7"
 APACHE_MIRROR=$"https://archive.apache.org/dist"
 
 PROJECT_DIR="/var/scratch/ddps2103/streaming-benchmarks-master/"
-#FLINK_NODES="node104.ib.cluster node105.ib.cluster node106.ib.cluster node107.ib.cluster"
-FLINK_NODES=""
-REDIS_NODE="node301.ib.cluster"
-KAFKA_NODES="node302.ib.cluster node303.ib.cluster node304.ib.cluster node305.ib.cluster node306.ib.cluster node307.ib.cluster node308.ib.cluster node309.ib.cluster"
-SPARK_MASTER="node301.ib.cluster"
-SPARK_SLAVES="node310.ib.cluster node311.ib.cluster node312.ib.cluster node313.ib.cluster node314.ib.cluster node315.ib.cluster node316.ib.cluster node317.ib.cluster"
+#FLINK_NODES="node117.ib.cluster node118.ib.cluster"
+FLINK_NODES="node301.ib.cluster node302.ib.cluster node303.ib.cluster node304.ib.cluster"
+REDIS_NODE="node310.ib.cluster"
+KAFKA_NODES="node305.ib.cluster node306.ib.cluster node307.ib.cluster node308.ib.cluster"
+SPARK_MASTER=""
+SPARK_SLAVES=""
+ZK_HOST="node310.ib.cluster"
+REDUCED_LOAD_HOST="node309.ib.cluster"
 SELF_ID=$(hostname | grep -P '\d+' --only-matching)
-NUM_HOSTS=8
+NUM_HOSTS=4
 NUM_PROCS=1
 NUM_RUNS=55
 
 
 #for spark run must 
 
-ZK_HOST="node301.ib.cluster"
 ZK_PORT="2181"
 ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
 TOPIC=${TOPIC:-"ad-events"}
 PARTITIONS=${PARTITIONS:-200}
 LOAD=${LOAD:-10000}
+LOAD_REDUCED=${LOAD:-1000}
 #CONF_FILE=./conf/localConf.yaml
 CONF_FILE=./conf/benchmarkConf.yaml
 TEST_TIME=${TEST_TIME:-120}
+REDUCED_TEST_TIME=${REDUCED_TEST_TIME:-40}
+
 
 
 
@@ -361,9 +365,10 @@ run() {
   then
     CMD="cd $PROJECT_DIR && ./stream-bench.sh START_LOCAL_REDIS"
     ssh -f "$REDIS_NODE" $CMD
+    sleep 2
   elif [ "START_LOCAL_REDIS" = "$OPERATION" ];
   then
-    cp "$REDIS_DIR/redis.conf" "$REDIS_DIR/redis_test.conf"
+    cp "../conf/redis_conf/redis.conf" "$REDIS_DIR/redis_test.conf"
     echo "bind $REDIS_NODE" >> "$REDIS_DIR/redis_test.conf"
     start_if_needed redis-server Redis 1 "$REDIS_DIR/src/redis-server" "$REDIS_DIR/redis_test.conf"
     cd data
@@ -397,6 +402,7 @@ run() {
     do
       CMD="cd $PROJECT_DIR && ./stream-bench.sh START_LOCAL_KAFKA"
       ssh -f "$node_kafka" $CMD
+      sleep 10
     done
     create_kafka_topic
   elif [ "START_LOCAL_KAFKA" = "$OPERATION" ];
@@ -407,7 +413,7 @@ run() {
     echo "advertised.host.name=node$SELF_ID.ib.cluster" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
     echo "zookeeper.connect=$ZK_CONNECTIONS" >> "$KAFKA_DIR/config/server_$SELF_ID.properties"
     mkdir -p /tmp/kafka-logs/
-    start_if_needed kafka\.Kafka Kafka 15 "$KAFKA_DIR/bin/kafka-server-start.sh" "$KAFKA_DIR/config/server_$SELF_ID.properties"
+    start_if_needed kafka\.Kafka Kafka 5 "$KAFKA_DIR/bin/kafka-server-start.sh" "$KAFKA_DIR/config/server_$SELF_ID.properties"
   elif [ "STOP_KAFKA" = "$OPERATION" ];
   then
     for node_kafka in $KAFKA_NODES
@@ -428,13 +434,13 @@ run() {
   elif [ "START_SPARK" = "$OPERATION" ];
   then
     ssh -f $SPARK_MASTER $PROJECT_DIR$SPARK_DIR/sbin/start-all.sh
-    sleep 15
+    sleep 10
 #    start_if_needed org.apache.spark.deploy.master.Master SparkMaster 5 $SPARK_DIR/sbin/start-master.sh -h $SPARK_MASTER -p 7077
 #    start_if_needed org.apache.spark.deploy.worker.Worker SparkSlave 5 $SPARK_DIR/sbin/start-slave.sh spark://$SPARK_MASTER:7077
   elif [ "STOP_SPARK" = "$OPERATION" ];
   then
     ssh -f $SPARK_MASTER $PROJECT_DIR$SPARK_DIR/sbin/stop-all.sh
-    sleep 15
+    sleep 10
 #    stop_if_needed org.apache.spark.deploy.master.Master SparkMaster
 #    stop_if_needed org.apache.spark.deploy.worker.Worker SparkSlave
 #    sleep 3
@@ -443,6 +449,24 @@ run() {
     cd data
     start_if_needed leiningen.core.main "Load Generation" 1 $LEIN run -r -t $LOAD --configPath ../$CONF_FILE
     cd ..
+  elif [ "START_REDUCED_LOAD" = "$OPERATION" ];
+  then
+      CMD="cd $PROJECT_DIR && ./stream-bench.sh START_LOCAL_REDUCED_LOAD"
+      ssh -f "$REDUCED_LOAD_HOST" $CMD
+  elif [ "START_LOCAL_REDUCED_LOAD" = "$OPERATION" ];
+  then
+    cd data
+    start_if_needed leiningen.core.main "Load Generation" 1 $LEIN run -r -t $LOAD_REDUCED --configPath ../$CONF_FILE
+    cd ..
+  elif [ "STOP_REDUCED_LOAD" = "$OPERATION" ];
+  then
+      CMD="cd $PROJECT_DIR && ./stream-bench.sh STOP_LOAD"
+      ssh -f "$REDUCED_LOAD_HOST" $CMD
+  # elif [ "STOP_LOCAL_REDUCED_LOAD" = "$OPERATION" ];
+  # then
+    # cd data
+    # start_if_needed leiningen.core.main "Load Generation" 1 $LEIN run -r -t $LOAD_REDUCED --configPath ../$CONF_FILE
+    # cd ..
   elif [ "STOP_LOAD" = "$OPERATION" ];
   then
     stop_if_needed leiningen.core.main "Load Generation"
@@ -505,7 +529,23 @@ run() {
     #    pip install pandas
     run "SETUP_FLINK"
     for ((i = 0 ; i < $NUM_RUNS ; i++)); do
-      run "FLINK_TEST" && cd data && python dataformat.py -# $NUM_HOSTS -s flink -t $i && cd ..
+      run "FLINK_TEST"
+      cd data
+      python dataformat.py -# $NUM_HOSTS -s flink -t $i
+      cd ..
+      wait
+    done
+  elif [ "RUN_FLINK_FB" = "$OPERATION" ];
+  then
+    #    python3 -m venv myenv
+    #    source myenv/bin/activate
+    #    pip install pandas
+    run "SETUP_FLINK"
+    for ((i = 0 ; i < $NUM_RUNS ; i++)); do
+      run "FLINK_FLUCTUATION_TEST"
+      cd data
+      python dataformat.py -# $NUM_HOSTS -s flink2 -t $i
+      cd ..
       wait
     done
 
@@ -521,6 +561,20 @@ run() {
       run "SPARK_TEST"
       cd data 
       python dataformat.py -# $NUM_HOSTS -s spark -t $i 
+      cd ..
+    done
+  elif [ "RUN_SPARK_FB" = "$OPERATION" ];
+  then 
+    #    python3 -m venv myenv
+    #    source myenv/bin/activate
+    #    pip install pandas
+    echo "started runing spark benchmar"
+    run "SETUP_SPARK"
+    echo "Done seting up spark"
+    for ((i = 0 ; i < $NUM_RUNS ; i++)); do
+      run "SPARK_FLUCTUATION_TEST"
+      cd data 
+      python dataformat.py -# $NUM_HOSTS -s spark2 -t $i 
       cd ..
     done
 
@@ -554,6 +608,27 @@ run() {
     run "STOP_KAFKA"
     run "STOP_REDIS"
     run "STOP_ZK"
+  elif [ "FLINK_FLUCTUATION_TEST" = "$OPERATION" ];
+  then
+    run "START_ZK"
+    run "START_REDIS"
+    run "START_KAFKA"
+    run "START_FLINK"
+    run "START_FLINK_PROCESSING"
+    run "START_LOAD"
+    sleep $REDUCED_TEST_TIME
+    run "STOP_LOAD"
+    run "START_REDUCED_LOAD"
+    sleep $REDUCED_TEST_TIME
+    run "STOP_REDUCED_LOAD"
+    run "START_LOAD"
+    sleep $REDUCED_TEST_TIME
+    run "STOP_LOAD"
+    run "STOP_FLINK_PROCESSING"
+    run "STOP_FLINK"
+    run "STOP_KAFKA"
+    run "STOP_REDIS"
+    run "STOP_ZK"
   elif [ "SPARK_TEST" = "$OPERATION" ];
   then
     run "START_ZK"
@@ -563,6 +638,27 @@ run() {
     run "START_SPARK_PROCESSING"
     run "START_LOAD"
     sleep $TEST_TIME
+    run "STOP_LOAD"
+    run "STOP_SPARK_PROCESSING"
+    run "STOP_SPARK"
+    run "STOP_KAFKA"
+    run "STOP_REDIS"
+    run "STOP_ZK"
+  elif [ "SPARK_FLUCTUATION_TEST" = "$OPERATION" ];
+  then
+    run "START_ZK"
+    run "START_REDIS"
+    run "START_KAFKA"
+    run "START_SPARK"
+    run "START_SPARK_PROCESSING"
+    run "START_LOAD"
+    sleep $REDUCED_TEST_TIME
+    run "STOP_LOAD"
+    run "START_REDUCED_LOAD"
+    sleep $REDUCED_TEST_TIME
+    run "STOP_REDUCED_LOAD"
+    run "START_LOAD"
+    sleep $REDUCED_TEST_TIME
     run "STOP_LOAD"
     run "STOP_SPARK_PROCESSING"
     run "STOP_SPARK"
@@ -651,9 +747,11 @@ run() {
     echo "STOP_ALL: stop everything"
     echo
     echo "RUN_FLINK_BENCHMARK: run flink benchmark in DAS5"
-    echo "RUN_SPARK_BENCHMARK: run flink benchmark in DAS5"
+    echo "RUN_FLINK_FB: run flink benchmark in DAS5 for fluctuated workload experiment"
+    echo "RUN_SPARK_BENCHMARK: run spark benchmark in DAS5"
+    echo "RUN_SPARK_FB: run spark benchmark in DAS5 for fluctuated workload experiment"
     echo
-    echo "STOP_SPARK_BENCHMARK: run flink benchmark in DAS5"
+    echo "STOP_SPARK_BENCHMARK: stop spark benchmark in DAS5"
     echo
     echo "HELP: print out this message"
     echo
